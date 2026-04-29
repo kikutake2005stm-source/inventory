@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>在庫・受注管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F4EF;
+  --surface:#FFFFFF;
+  --surface2:#EFEBE3;
+  --border:#DDD8CE;
+  --text:#1C1917;
+  --muted:#78716C;
+  --accent:#3D3027;
+  --accent2:#C9803A;
+  --accent2-light:#FDF3E7;
+  --danger:#B91C1C;
+  --danger-light:#FEE2E2;
+  --warn:#B45309;
+  --warn-light:#FEF3C7;
+  --ok:#15803D;
+  --ok-light:#DCFCE7;
+  --mono:'DM Mono',monospace;
+  --sans:'Noto Sans JP',sans-serif;
+  --radius:10px;
+  --radius-lg:16px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+/* NAV */
+nav{background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:56px;position:sticky;top:0;z-index:100}
+.nav-brand{font-size:1rem;font-weight:700;letter-spacing:-0.01em;display:flex;align-items:center;gap:8px}
+.nav-brand span{font-size:1.2rem}
+.nav-tabs{display:flex;gap:2px}
+.nav-tab{padding:6px 14px;border-radius:6px;font-size:0.78rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:rgba(255,255,255,0.6);font-family:var(--sans);transition:all 0.15s}
+.nav-tab:hover{background:rgba(255,255,255,0.1);color:#fff}
+.nav-tab.active{background:rgba(255,255,255,0.18);color:#fff}
+.nav-right{font-family:var(--mono);font-size:0.65rem;opacity:0.4;white-space:nowrap}
+
+/* LAYOUT */
+.page{display:none;max-width:960px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+.page.active{display:block}
+
+/* SECTION TITLE */
+.sec-title{font-size:1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.sec-title .icon{font-size:1rem}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.card-head{background:var(--surface2);padding:.75rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-head h3{font-size:.82rem;font-weight:700}
+.card-body{padding:1.25rem}
+
+/* SUMMARY GRID */
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.25rem}
+@media(max-width:600px){.summary-grid{grid-template-columns:1fr 1fr}.nav-right{display:none}}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem;text-align:center}
+.stat-label{font-size:.65rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.stat-val{font-family:var(--mono);font-size:1.6rem;font-weight:500;margin-top:4px}
+.stat-val.ok{color:var(--ok)}.stat-val.warn{color:var(--warn)}.stat-val.danger{color:var(--danger)}
+
+/* INVENTORY */
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:580px){.inv-grid{grid-template-columns:1fr}}
+.inv-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.inv-head{background:var(--surface2);padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.inv-badge{width:32px;height:32px;background:var(--accent);color:#fff;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
+.inv-title{font-size:.88rem;font-weight:700}
+.inv-sub{font-size:.65rem;color:var(--muted)}
+.pill{font-size:.6rem;font-weight:700;padding:3px 9px;border-radius:99px;letter-spacing:.03em}
+.inv-body{padding:1rem}
+.big-num{font-family:var(--mono);font-size:2.6rem;font-weight:500;line-height:1}
+.big-unit{font-size:.78rem;color:var(--muted);margin-left:4px}
+.prog-wrap{height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;margin:10px 0 1rem}
+.prog-bar{height:100%;border-radius:99px;transition:width .4s cubic-bezier(.4,0,.2,1),background .3s}
+.row{display:flex;gap:8px;margin-bottom:8px;align-items:stretch}
+.inp{flex:1;padding:9px 11px;font-size:.88rem;font-family:var(--mono);border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s}
+.inp:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(201,128,58,.15)}
+.inp::placeholder{color:var(--muted);font-size:.78rem}
+.btn{padding:9px 13px;border-radius:7px;border:1px solid;font-size:.75rem;font-weight:600;font-family:var(--sans);cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn-use{background:var(--danger-light);color:var(--danger);border-color:rgba(185,28,28,.2)}
+.btn-use:hover{background:#fecaca}
+.btn-add{background:var(--ok-light);color:var(--ok);border-color:rgba(21,128,61,.2)}
+.btn-add:hover{background:#bbf7d0}
+.btn-primary{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.btn-primary:hover{opacity:.88}
+.btn-ghost{background:transparent;color:var(--muted);border-color:var(--border)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.quick-row{display:flex;gap:5px;margin-bottom:.9rem;flex-wrap:wrap}
+.qbtn{font-size:.65rem;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--sans);transition:all .15s}
+.qbtn:hover{background:var(--surface2);color:var(--text)}
+.note-inp{width:100%;font-size:.72rem;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--muted);font-family:var(--sans);margin-bottom:.9rem;outline:none}
+.note-inp:focus{border-color:var(--accent2);color:var(--text)}
+.hist-title{font-size:.6rem;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.hist-list{display:flex;flex-direction:column;gap:3px;max-height:130px;overflow-y:auto}
+.hist-item{display:flex;justify-content:space-between;align-items:center;font-size:.68rem;padding:4px 7px;background:var(--bg);border-radius:5px;gap:6px}
+.h-date{color:var(--muted);font-family:var(--mono);flex-shrink:0}
+.h-type{font-weight:700;flex-shrink:0}
+.h-use{color:var(--danger)}.h-add{color:var(--ok)}
+.h-after{font-family:var(--mono);font-weight:500;flex-shrink:0}
+.h-note{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:right;font-size:.64rem}
+.card-foot{padding:.6rem 1rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end}
+.reset-btn{font-size:.65rem;color:var(--muted);background:none;border:none;cursor:pointer;font-family:var(--sans);text-decoration:underline}
+.reset-btn:hover{color:var(--danger)}
+.empty{font-size:.72rem;color:var(--muted);text-align:center;padding:10px}
+
+/* ORDER */
+.order-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:580px){.order-form{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+.field label{font-size:.7rem;font-weight:600;color:var(--muted);letter-spacing:.04em}
+.field input,.field textarea,.field select{padding:9px 11px;font-size:.85rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s,box-shadow .2s}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(201,128,58,.15)}
+.field textarea{resize:vertical;min-height:70px}
+.cost-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:.5rem}
+.cost-item{display:flex;flex-direction:column;gap:4px}
+.cost-item label{font-size:.65rem;font-weight:600;color:var(--muted)}
+.cost-total{background:var(--accent2-light);border:1px solid rgba(201,128,58,.25);border-radius:8px;padding:.75rem 1rem;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.cost-total-label{font-size:.72rem;font-weight:700;color:var(--accent2)}
+.cost-total-val{font-family:var(--mono);font-size:1.2rem;font-weight:500;color:var(--accent2)}
+
+/* ITEMS (products) */
+.product-row{display:flex;gap:8px;align-items:center}
+.product-tag{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 12px;font-size:.75rem;font-weight:500}
+.product-tag .del{cursor:pointer;color:var(--muted);font-size:.8rem;line-height:1;background:none;border:none;font-family:var(--sans)}
+.product-tag .del:hover{color:var(--danger)}
+.products-wrap{display:flex;flex-wrap:wrap;gap:8px;min-height:36px;padding:.5rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
+
+/* ORDER TABLE */
+.order-table{width:100%;border-collapse:collapse;font-size:.75rem}
+.order-table th{text-align:left;padding:7px 10px;font-size:.65rem;letter-spacing:.05em;color:var(--muted);text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--border)}
+.order-table td{padding:8px 10px;border-bottom:1px solid var(--surface2);vertical-align:middle}
+.order-table tr:last-child td{border-bottom:none}
+.order-table tr:hover td{background:var(--bg)}
+.tag{display:inline-block;font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:99px}
+.tag-new{background:var(--ok-light);color:var(--ok)}
+.tag-progress{background:var(--warn-light);color:var(--warn)}
+.tag-done{background:var(--surface2);color:var(--muted)}
+.del-order{font-size:.65rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline}
+.del-order:hover{color:var(--danger)}
+
+/* DATA */
+.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:580px){.data-grid{grid-template-columns:1fr}}
+.data-block{display:flex;flex-direction:column;gap:8px}
+.data-block-title{font-size:.7rem;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.data-block-desc{font-size:.72rem;color:var(--muted);line-height:1.5}
+.btn-dl{display:flex;align-items:center;gap:7px;padding:10px 16px;border-radius:8px;border:1px solid var(--border);font-size:.8rem;font-weight:600;font-family:var(--sans);cursor:pointer;transition:all .15s;background:var(--bg);color:var(--text);width:100%}
+.btn-dl:hover{background:var(--surface2);border-color:var(--accent2)}
+.btn-dl.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-dl.primary:hover{opacity:.88}
+input[type=file]{display:none}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--accent);color:#fff;padding:.7rem 1.2rem;border-radius:9px;font-size:.8rem;font-weight:500;opacity:0;transform:translateY(8px);transition:opacity .22s,transform .22s;pointer-events:none;z-index:999;max-width:260px}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* ANIM */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.anim{animation:fadeUp .4s ease both}
+.anim2{animation:fadeUp .4s ease .08s both}
+.anim3{animation:fadeUp .4s ease .16s both}
+
+/* LOG TABLE */
+.log-wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand"><span>🛍</span> 在庫・受注管理</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('inventory')">在庫</button>
+    <button class="nav-tab" onclick="showPage('order')">受注</button>
+    <button class="nav-tab" onclick="showPage('orders-list')">受注一覧</button>
+    <button class="nav-tab" onclick="showPage('data')">データ</button>
+  </div>
+  <div class="nav-right" id="nav-date"></div>
+</nav>
+
+<!-- ========== 在庫ページ ========== -->
+<div class="page active anim" id="page-inventory">
+  <div class="summary-grid" id="inv-summary"></div>
+  <div class="inv-grid" id="inv-grid"></div>
+</div>
+
+<!-- ========== 受注入力ページ ========== -->
+<div class="page" id="page-order">
+  <div class="card anim">
+    <div class="card-head"><h3>📝 新規受注登録</h3></div>
+    <div class="card-body">
+      <div class="order-form">
+        <div class="field">
+          <label>受注日</label>
+          <input type="date" id="o-date">
+        </div>
+        <div class="field">
+          <label>顧客名</label>
+          <input type="text" id="o-client" placeholder="例: 山田商店">
+        </div>
+        <div class="field full">
+          <label>販売商品（入力してEnterで追加）</label>
+          <div class="products-wrap" id="products-wrap"></div>
+          <div class="product-row">
+            <input type="text" class="inp" id="product-inp" placeholder="商品名を入力…" style="font-family:var(--sans);font-size:.82rem">
+            <button class="btn btn-primary" onclick="addProduct()">追加</button>
+          </div>
+        </div>
+        <div class="field full">
+          <label>材料費・仕入れ値（円）</label>
+          <div class="cost-grid">
+            <div class="cost-item">
+              <label>材料費①</label>
+              <input type="number" class="inp" id="cost1" placeholder="0" min="0" oninput="calcTotal()">
+            </div>
+            <div class="cost-item">
+              <label>材料費②</label>
+              <input type="number" class="inp" id="cost2" placeholder="0" min="0" oninput="calcTotal()">
+            </div>
+            <div class="cost-item">
+              <label>仕入れ値①</label>
+              <input type="number" class="inp" id="cost3" placeholder="0" min="0" oninput="calcTotal()">
+            </div>
+            <div class="cost-item">
+              <label>仕入れ値②</label>
+              <input type="number" class="inp" id="cost4" placeholder="0" min="0" oninput="calcTotal()">
+            </div>
+          </div>
+          <div class="cost-total">
+            <span class="cost-total-label">合計コスト</span>
+            <span class="cost-total-val" id="cost-total">¥0</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>売上金額（円）</label>
+          <input type="number" class="inp" id="o-revenue" placeholder="0" min="0" oninput="calcProfit()">
+        </div>
+        <div class="field">
+          <label>粗利</label>
+          <div style="padding:9px 11px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);font-family:var(--mono);font-size:.88rem" id="o-profit">—</div>
+        </div>
+        <div class="field full">
+          <label>メモ</label>
+          <textarea id="o-memo" placeholder="備考・納期など自由に"></textarea>
+        </div>
+        <div class="field full">
+          <label>ステータス</label>
+          <select id="o-status">
+            <option value="new">新規</option>
+            <option value="progress">対応中</option>
+            <option value="done">完了</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:1rem">
+        <button class="btn btn-primary" style="padding:10px 24px;font-size:.85rem" onclick="saveOrder()">受注を登録</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 受注一覧ページ ========== -->
+<div class="page" id="page-orders-list">
+  <div class="card anim">
+    <div class="card-head">
+      <h3>📋 受注一覧</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="filter-status" onchange="renderOrdersList()" style="font-size:.72rem;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--sans)">
+          <option value="">すべて</option>
+          <option value="new">新規</option>
+          <option value="progress">対応中</option>
+          <option value="done">完了</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="log-wrap">
+        <table class="order-table">
+          <thead><tr><th>受注日</th><th>顧客</th><th>商品</th><th>コスト</th><th>売上</th><th>粗利</th><th>状態</th><th>メモ</th><th></th></tr></thead>
+          <tbody id="orders-tbody"></tbody>
+        </table>
+        <div id="orders-empty" class="empty">受注データがありません</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== データページ ========== -->
+<div class="page" id="page-data">
+  <div class="card anim">
+    <div class="card-head"><h3>💾 データ管理</h3></div>
+    <div class="card-body">
+      <div class="data-grid">
+        <div class="data-block">
+          <div class="data-block-title">📤 エクスポート（バックアップ）</div>
+          <div class="data-block-desc">在庫・受注データをJSONファイルで保存します。システム更新前や定期バックアップに使用してください。</div>
+          <button class="btn-dl primary" onclick="exportData()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            データをダウンロード
+          </button>
+        </div>
+        <div class="data-block">
+          <div class="data-block-title">📥 インポート（復元）</div>
+          <div class="data-block-desc">バックアップしたJSONを読み込みます。新しいHTMLに切り替えた後はここからデータを復元できます。</div>
+          <button class="btn-dl" onclick="document.getElementById('import-file').click()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            ファイルを読み込む
+          </button>
+          <input type="file" id="import-file" accept=".json" onchange="importData(event)">
+        </div>
+      </div>
+      <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+        <div class="data-block-title" style="margin-bottom:.75rem">🗄 ストレージ状況</div>
+        <div id="storage-info" style="font-size:.75rem;color:var(--muted)"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+const SIZES = ['大','小'];
+const MAX = 50;
+const QUICK = [1,3,5,10];
+let state = {};
+let orders = [];
+let tempProducts = [];
+
+function ls_get(k,d){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d}catch(e){return d}}
+function ls_set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+function loadAll(){
+  SIZES.forEach(sz=>{
+    state[sz]={
+      remaining:ls_get(`bag_${sz}_rem`,MAX),
+      history:ls_get(`bag_${sz}_hist`,[])
+    };
+  });
+  orders=ls_get('bag_orders',[]);
+}
+loadAll();
+
+// ── NAV ──
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  event.target.classList.add('active');
+  if(id==='orders-list')renderOrdersList();
+  if(id==='data')renderStorageInfo();
+}
+
+// ── DATE ──
+function fmtDate(){
+  const d=new Date();
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function updateNavDate(){
+  const d=new Date();
+  document.getElementById('nav-date').textContent=
+    `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+updateNavDate();setInterval(updateNavDate,30000);
+
+// ── INVENTORY ──
+function statusInfo(rem){
+  if(rem<=0)return{label:'在庫なし',cls:'danger',pill:{bg:'#FEE2E2',color:'#B91C1C'}};
+  if(rem<=5)return{label:'要補充',cls:'danger',pill:{bg:'#FEE2E2',color:'#B91C1C'}};
+  if(rem<=15)return{label:'残り少',cls:'warn',pill:{bg:'#FEF3C7',color:'#B45309'}};
+  return{label:'在庫あり',cls:'ok',pill:{bg:'#DCFCE7',color:'#15803D'}};
+}
+function barColor(cls){
+  if(cls==='danger')return'#B91C1C';
+  if(cls==='warn')return'#B45309';
+  return'#15803D';
+}
+
+function renderInvSummary(){
+  const total=SIZES.reduce((a,sz)=>a+Math.max(0,state[sz].remaining),0);
+  const pct=Math.round(total/(SIZES.length*MAX)*100);
+  const si=statusInfo(Math.min(...SIZES.map(sz=>state[sz].remaining)));
+  document.getElementById('inv-summary').innerHTML=`
+    <div class="stat"><div class="stat-label">合計残数</div><div class="stat-val ${si.cls}">${total}<span style="font-size:.8rem;opacity:.5">枚</span></div></div>
+    <div class="stat"><div class="stat-label">在庫率</div><div class="stat-val ${si.cls}">${pct}<span style="font-size:.8rem;opacity:.5">%</span></div></div>
+    <div class="stat"><div class="stat-label">受注件数</div><div class="stat-val" style="color:var(--accent2)">${orders.length}<span style="font-size:.8rem;opacity:.5">件</span></div></div>
+  `;
+}
+
+function renderInvCards(){
+  const grid=document.getElementById('inv-grid');
+  grid.innerHTML='';
+  SIZES.forEach(sz=>{
+    const s=state[sz];
+    const rem=Math.max(0,s.remaining);
+    const pct=Math.round(rem/MAX*100);
+    const si=statusInfo(rem);
+    const bc=barColor(si.cls);
+    const histHtml=s.history.length===0
+      ?'<div class="empty">まだ操作がありません</div>'
+      :s.history.slice(-5).reverse().map(h=>`
+        <div class="hist-item">
+          <span class="h-date">${h.date.slice(5)}</span>
+          <span class="h-type ${h.type==='use'?'h-use':'h-add'}">${h.type==='use'?'▼使用':'▲補充'} ${h.amount}枚</span>
+          <span class="h-after">${h.after}枚</span>
+          <span class="h-note">${h.note||''}</span>
+        </div>`).join('');
+    const div=document.createElement('div');
+    div.className='inv-card';
+    div.innerHTML=`
+      <div class="inv-head">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div class="inv-badge">${sz}</div>
+          <div><div class="inv-title">${sz}サイズ</div><div class="inv-sub">初期在庫 ${MAX}枚</div></div>
+        </div>
+        <div class="pill" style="background:${si.pill.bg};color:${si.pill.color}">${si.label}</div>
+      </div>
+      <div class="inv-body">
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:8px">
+          <div class="big-num ${si.cls}">${rem}</div>
+          <div class="big-unit">枚 残り</div>
+        </div>
+        <div class="prog-wrap"><div class="prog-bar" style="width:${pct}%;background:${bc}"></div></div>
+        <div class="row">
+          <input type="number" class="inp" id="inp-${sz}" min="1" max="999" placeholder="枚数" onkeydown="if(event.key==='Enter')applyChange('${sz}','use')">
+          <button class="btn btn-use" onclick="applyChange('${sz}','use')">▼ 使用</button>
+          <button class="btn btn-add" onclick="applyChange('${sz}','add')">▲ 補充</button>
+        </div>
+        <div class="quick-row">${QUICK.map(n=>`<button class="qbtn" onclick="setQ('${sz}',${n})">${n}枚</button>`).join('')}</div>
+        <input type="text" class="note-inp" id="note-${sz}" placeholder="メモ（任意）">
+        <div class="hist-title">最近の操作</div>
+        <div class="hist-list">${histHtml}</div>
+      </div>
+      <div class="card-foot"><button class="reset-btn" onclick="resetSz('${sz}')">← ${MAX}枚にリセット</button></div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function renderInv(){renderInvSummary();renderInvCards();}
+renderInv();
+
+function setQ(sz,n){document.getElementById('inp-'+sz).value=n;document.getElementById('inp-'+sz).focus();}
+
+function applyChange(sz,type){
+  const inp=document.getElementById('inp-'+sz);
+  const note=document.getElementById('note-'+sz).value.trim();
+  const val=parseInt(inp.value,10);
+  if(!val||val<1){inp.focus();showToast('枚数を入力してください');return;}
+  const s=state[sz];
+  s.remaining=type==='use'?s.remaining-val:s.remaining+val;
+  const after=Math.max(0,s.remaining);
+  const entry={type,amount:val,after,date:fmtDate(),note};
+  s.history.push(entry);
+  if(s.history.length>30)s.history=s.history.slice(-30);
+  ls_set(`bag_${sz}_rem`,s.remaining);
+  ls_set(`bag_${sz}_hist`,s.history);
+  inp.value='';
+  document.getElementById('note-'+sz).value='';
+  showToast(`${sz}サイズ: ${type==='use'?`${val}枚使用 → 残り${after}枚`:`${val}枚補充 → 残り${after}枚`}`);
+  renderInv();
+}
+
+function resetSz(sz){
+  if(!confirm(`${sz}サイズを${MAX}枚にリセットしますか？`))return;
+  state[sz].remaining=MAX;
+  state[sz].history.push({type:'add',amount:'(リセット)',after:MAX,date:fmtDate(),note:'リセット'});
+  ls_set(`bag_${sz}_rem`,MAX);
+  ls_set(`bag_${sz}_hist`,state[sz].history);
+  showToast(`${sz}サイズを${MAX}枚にリセットしました`);
+  renderInv();
+}
+
+// ── ORDER ──
+document.getElementById('o-date').value=new Date().toISOString().slice(0,10);
+document.getElementById('product-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addProduct();});
+
+function addProduct(){
+  const inp=document.getElementById('product-inp');
+  const val=inp.value.trim();
+  if(!val)return;
+  tempProducts.push(val);
+  inp.value='';
+  renderProductTags();
+  inp.focus();
+}
+
+function removeProduct(i){
+  tempProducts.splice(i,1);
+  renderProductTags();
+}
+
+function renderProductTags(){
+  const wrap=document.getElementById('products-wrap');
+  wrap.innerHTML=tempProducts.length===0
+    ?'<span style="font-size:.72rem;color:var(--muted);padding:4px">商品を入力してください</span>'
+    :tempProducts.map((p,i)=>`<span class="product-tag">${p}<button class="del" onclick="removeProduct(${i})">✕</button></span>`).join('');
+}
+renderProductTags();
+
+function calcTotal(){
+  const vals=[1,2,3,4].map(i=>parseFloat(document.getElementById('cost'+i).value)||0);
+  const total=vals.reduce((a,b)=>a+b,0);
+  document.getElementById('cost-total').textContent='¥'+total.toLocaleString();
+  calcProfit();
+  return total;
+}
+
+function calcProfit(){
+  const cost=calcTotalRaw();
+  const rev=parseFloat(document.getElementById('o-revenue').value)||0;
+  const profit=rev-cost;
+  const el=document.getElementById('o-profit');
+  if(rev===0&&cost===0){el.textContent='—';el.style.color='var(--muted)';return;}
+  el.textContent='¥'+profit.toLocaleString();
+  el.style.color=profit>=0?'var(--ok)':'var(--danger)';
+}
+
+function calcTotalRaw(){
+  return[1,2,3,4].map(i=>parseFloat(document.getElementById('cost'+i).value)||0).reduce((a,b)=>a+b,0);
+}
+
+function saveOrder(){
+  const client=document.getElementById('o-client').value.trim();
+  const date=document.getElementById('o-date').value;
+  if(!client){showToast('顧客名を入力してください');return;}
+  if(tempProducts.length===0){showToast('商品を追加してください');return;}
+  const cost=calcTotalRaw();
+  const revenue=parseFloat(document.getElementById('o-revenue').value)||0;
+  const order={
+    id:Date.now(),
+    date,client,
+    products:[...tempProducts],
+    costs:{1:parseFloat(document.getElementById('cost1').value)||0,2:parseFloat(document.getElementById('cost2').value)||0,3:parseFloat(document.getElementById('cost3').value)||0,4:parseFloat(document.getElementById('cost4').value)||0},
+    totalCost:cost,revenue,profit:revenue-cost,
+    memo:document.getElementById('o-memo').value.trim(),
+    status:document.getElementById('o-status').value,
+    createdAt:fmtDate()
+  };
+  orders.unshift(order);
+  ls_set('bag_orders',orders);
+  // reset form
+  document.getElementById('o-client').value='';
+  document.getElementById('o-memo').value='';
+  [1,2,3,4].forEach(i=>document.getElementById('cost'+i).value='');
+  document.getElementById('o-revenue').value='';
+  document.getElementById('o-profit').textContent='—';
+  document.getElementById('cost-total').textContent='¥0';
+  document.getElementById('o-status').value='new';
+  document.getElementById('o-date').value=new Date().toISOString().slice(0,10);
+  tempProducts=[];
+  renderProductTags();
+  renderInvSummary();
+  showToast('✅ 受注を登録しました！');
+}
+
+// ── ORDERS LIST ──
+function renderOrdersList(){
+  const filter=document.getElementById('filter-status').value;
+  const list=filter?orders.filter(o=>o.status===filter):orders;
+  const tbody=document.getElementById('orders-tbody');
+  const empty=document.getElementById('orders-empty');
+  if(list.length===0){tbody.innerHTML='';empty.style.display='';return;}
+  empty.style.display='none';
+  const statusTag={new:'tag-new',progress:'tag-progress',done:'tag-done'};
+  const statusLabel={new:'新規',progress:'対応中',done:'完了'};
+  tbody.innerHTML=list.map(o=>`
+    <tr>
+      <td style="font-family:var(--mono);color:var(--muted)">${o.date}</td>
+      <td style="font-weight:600">${o.client}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.products.join(', ')}">${o.products.join(', ')}</td>
+      <td style="font-family:var(--mono)">¥${o.totalCost.toLocaleString()}</td>
+      <td style="font-family:var(--mono)">¥${o.revenue.toLocaleString()}</td>
+      <td style="font-family:var(--mono);color:${o.profit>=0?'var(--ok)':'var(--danger)'};font-weight:500">¥${o.profit.toLocaleString()}</td>
+      <td><span class="tag ${statusTag[o.status]||'tag-done'}">${statusLabel[o.status]||o.status}</span></td>
+      <td style="color:var(--muted);font-size:.68rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.memo||'—'}</td>
+      <td><button class="del-order" onclick="deleteOrder(${o.id})">削除</button></td>
+    </tr>`).join('');
+}
+
+function deleteOrder(id){
+  if(!confirm('この受注を削除しますか？'))return;
+  orders=orders.filter(o=>o.id!==id);
+  ls_set('bag_orders',orders);
+  renderOrdersList();
+  renderInvSummary();
+  showToast('受注を削除しました');
+}
+
+// ── DATA ──
+function renderStorageInfo(){
+  let total=0;
+  try{for(let k in localStorage){if(k.startsWith('bag_'))total+=localStorage.getItem(k).length;}}catch(e){}
+  document.getElementById('storage-info').innerHTML=
+    `使用中: 約 ${(total/1024).toFixed(1)} KB ／ 在庫データ ${SIZES.length}サイズ ／ 受注 ${orders.length}件`;
+}
+
+function exportData(){
+  const payload={version:'2.0',exportedAt:fmtDate(),inventory:{},orders};
+  SIZES.forEach(sz=>{payload.inventory[sz]={remaining:state[sz].remaining,history:state[sz].history};});
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date();
+  a.href=url;
+  a.download=`在庫受注データ_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.json`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('✅ バックアップをダウンロードしました');
+}
+
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.inventory)throw new Error('形式エラー');
+      if(!confirm(`「${data.exportedAt}」のデータを復元しますか？\n現在のデータは上書きされます。`)){e.target.value='';return;}
+      SIZES.forEach(sz=>{
+        if(data.inventory[sz]){
+          state[sz].remaining=data.inventory[sz].remaining;
+          state[sz].history=data.inventory[sz].history||[];
+          ls_set(`bag_${sz}_rem`,state[sz].remaining);
+          ls_set(`bag_${sz}_hist`,state[sz].history);
+        }
+      });
+      if(data.orders){orders=data.orders;ls_set('bag_orders',orders);}
+      showToast('✅ データを復元しました！');
+      renderInv();renderStorageInfo();
+    }catch(err){showToast('❌ ファイルの読み込みに失敗しました');}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ── TOAST ──
+let toastT;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
